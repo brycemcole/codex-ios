@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+link=/var/mobile/.codex/packages/standalone/current/codex
+if [ -L "$link" ] && [ "$(readlink "$link")" = /usr/bin/codex ]; then
+    rm "$link"
+fi
+exit 0

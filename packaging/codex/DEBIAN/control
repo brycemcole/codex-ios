@@ -1,0 +1,10 @@
+Package: com.brycemcole.codex-ios
+Name: Codex for iOS
+Version: 0.147.0-1
+Architecture: iphoneos-arm
+Description: Native OpenAI Codex CLI for jailbroken arm64 iOS devices
+Maintainer: Bryce Cole
+Author: OpenAI and contributors
+Section: Utilities
+Depends: firmware (>= 13.0), bash, ca-certificates, curl, git
+Homepage: https://github.com/brycemcole/codex-ios

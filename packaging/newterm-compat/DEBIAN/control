@@ -1,0 +1,9 @@
+Package: com.brycemcole.codex-newterm-compat
+Name: Codex NewTerm 2 Compatibility
+Version: 1.0.0-1
+Architecture: iphoneos-arm
+Description: NewTerm 2.5 renderer and environment compatibility for Codex
+Maintainer: Bryce Cole
+Section: Tweaks
+Depends: firmware (>= 13.0), ws.hbang.newterm2 (>= 2.5), mobilesubstrate
+Homepage: https://github.com/brycemcole/codex-ios
