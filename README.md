@@ -11,13 +11,15 @@ The release contains two Debian packages:
 
 | Device | Status |
 | --- | --- |
-| iPhone SE (1st generation), iOS 13.1.2, rootful jailbreak | Tested |
+| iPhone SE (1st generation), iOS 13.1.2, rootful jailbreak | An equivalent build ran here previously; these exact packages have not been reinstalled since |
 | Other arm64 devices on rootful iOS 13 | Expected |
 | Rootful iOS 14 | Expected, not yet device-tested |
 | Rootless iOS 15 and 16 | Not packaged yet |
 | iOS 12 or armv7 | Unsupported |
 
 The binary targets iOS 13.0 and ARMv8.0 so it does not require newer ARM LSE instructions. NewTerm 2 itself supports iOS 10–16.2, but this Codex build requires iOS 13 or newer.
+
+Build-side verification for these packages: the executable and shim report an iOS 13.0 minimum in their Mach-O load commands, the Codex binary disassembles with no ARMv8.1 LSE atomics, and both packages were reproduced from a clean clone using only the checked-in patch and scripts.
 
 ## Install
 
