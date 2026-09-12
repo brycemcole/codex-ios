@@ -74,7 +74,7 @@ from the GPL-2.0 NewTerm source in this repository's build scripts.
 2. Install NewTerm for iOS 9, then the Codex package:
 
 ```sh
-sudo dpkg -i com.brycemcole.newterm-ios9_2.0~beta3+codex1_iphoneos-arm.deb
+sudo dpkg -i com.brycemcole.newterm-ios9_2.0.beta3+codex1_iphoneos-arm.deb
 sudo dpkg -i com.brycemcole.codex-ios-armv7_0.147.0-1_iphoneos-arm.deb
 ```
 
