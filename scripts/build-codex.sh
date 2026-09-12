@@ -2,6 +2,9 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ "${CODEX_IOS_ARCH:-arm64}" = armv7 ]; then
+    exec "$repo_root/scripts/build-armv7.sh"
+fi
 source_dir="$repo_root/.build/codex"
 cargo_home="$repo_root/.build/cargo-home"
 target_dir="$repo_root/.build/target"

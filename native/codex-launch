@@ -1,0 +1,5 @@
+#!/bin/sh
+export TOKIO_WORKER_THREADS="${TOKIO_WORKER_THREADS:-1}"
+export RUST_MIN_STACK="${RUST_MIN_STACK:-1048576}"
+export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
+exec /var/lib/codex-ios/bin/codex "$@"

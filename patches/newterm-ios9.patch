@@ -1,0 +1,152 @@
+--- a/NewTerm/Makefile
++++ b/NewTerm/Makefile
+@@ -1,10 +1,10 @@
+ include $(THEOS)/makefiles/common.mk
+ 
+ APPLICATION_NAME = NewTerm
+-NewTerm_FILES = $(wildcard *.m) $(wildcard *.x) $(wildcard ../VT100/*.m)
++NewTerm_FILES = $(wildcard *.m) $(wildcard *.c) $(wildcard *.x) $(wildcard ../VT100/*.m)
+ NewTerm_FRAMEWORKS = UIKit CoreGraphics QuartzCore
+ NewTerm_PRIVATE_FRAMEWORKS = Preferences
+-NewTerm_EXTRA_FRAMEWORKS = Cephei
++NewTerm_EXTRA_FRAMEWORKS = Cephei CepheiUI
+ NewTerm_LIBRARIES = curses
+ NewTerm_CFLAGS = -I../headers -I../VT100 -fobjc-arc
+ NewTerm_CODESIGN_FLAGS = -Sentitlements.plist
+--- a/NewTerm/HBNTKeyboardToolbar.m
++++ b/NewTerm/HBNTKeyboardToolbar.m
+@@ -1,6 +1,6 @@
+ #import "HBNTKeyboardToolbar.h"
+ #import "HBNTKeyboardButton.h"
+-#import <Cephei/UIView+CompactConstraint.h>
++#import <CepheiUI/UIView+CompactConstraint.h>
+ 
+ @interface HBNTKeyboardToolbar () <UIInputViewAudioFeedback>
+ 
+--- a/NewTerm/HBNTSubProcess.m
++++ b/NewTerm/HBNTSubProcess.m
+@@ -60,7 +60,16 @@
+ 
+ 		// TODO: these should be configurable
+ 		char *env[] = {
+-			"TERM=xterm-color",
++			"TERM=xterm-256color",
++			"HOME=/var/mobile",
++			"USER=mobile",
++			"LOGNAME=mobile",
++			"SHELL=/bin/bash",
++			"PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
++			"CODEX_HOME=/var/mobile/.codex",
++			"TERM_PROGRAM=NewTerm",
++			"COLORTERM=truecolor",
++			"LC_CTYPE=en_US.UTF-8",
+ 			"LANG=en_US.UTF-8",
+ 			NULL
+ 		};
+--- a/NewTerm/HBNTTerminalController.m
++++ b/NewTerm/HBNTTerminalController.m
+@@ -30,6 +30,7 @@
+ 	HBNTPTY *_pty;
+ 
+ 	BOOL _processEnded;
++	BOOL _refreshPending;
+ }
+ 
+ - (instancetype)init {
+@@ -71,6 +72,7 @@
+ }
+ 
+ - (void)setScreenSize:(ScreenSize)screenSize {
++	if (screenSize.width < 10 || screenSize.width > kMaxRowBufferSize || screenSize.height < 3 || screenSize.height > 1000) return;
+ 	// Send the terminal the actual size of our vt100 view. This should be called any time we change
+ 	// the size of the view. This should be a no-op if the size has not changed since the last time we
+ 	// called it.
+@@ -103,22 +105,13 @@
+ #pragma mark - Screen Buffer Delegate
+ 
+ - (void)refresh {
+-	// TODO: we should handle the scrollback separately so it only appears if the user scrolls
+-	dispatch_async(_updateQueue, ^{
+-		NSMutableAttributedString *attributedString = _stringSupplier.attributedString;
+-		UIColor *backgroundColor = _stringSupplier.colorMap.background;
+-
+-		dispatch_async(dispatch_get_main_queue(), ^{
+-			[_delegate refreshWithAttributedString:attributedString backgroundColor:backgroundColor];
+-		});
+-
+-		dispatch_async(_secondaryUpdateQueue, ^{
+-			[_stringSupplier detectLinksForAttributedString:attributedString];
+-
+-			dispatch_async(dispatch_get_main_queue(), ^{
+-				[_delegate refreshWithAttributedString:attributedString backgroundColor:backgroundColor];
+-			});
+-		});
++	if (_refreshPending) return;
++	_refreshPending = YES;
++	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 30), dispatch_get_main_queue(), ^{
++		_refreshPending = NO;
++		NSMutableAttributedString *text = _stringSupplier.attributedString;
++		[_stringSupplier detectLinksForAttributedString:text];
++		[_delegate refreshWithAttributedString:text backgroundColor:_stringSupplier.colorMap.background];
+ 	});
+ }
+ 
+--- a/VT100/VT100ColorMap.m
++++ b/VT100/VT100ColorMap.m
+@@ -3,7 +3,7 @@
+ 
+ #import "VT100ColorMap.h"
+ #import "VT100Terminal.h"
+-#import <Cephei/UIColor+HBAdditions.h>
++#import <CepheiUI/UIColor+HBAdditions.h>
+ 
+ @interface VT100ColorMap () {
+ 	UIColor *_table[COLOR_MAP_MAX_COLORS];
+--- a/VT100/VT100Screen.m
++++ b/VT100/VT100Screen.m
+@@ -255,7 +255,7 @@
+ 		_currentScrollbackLines = 0;
+ 
+ 		// set up our dirty flags buffer
+-		_dirty = (char *)malloc(_height * _width * sizeof(char));
++		_dirty = (char *)calloc(_height * _width + 64, sizeof(char));
+ 
+ 		// force a redraw
+ 		[self setDirty];
+--- a/control
++++ b/control
+@@ -1,16 +1,16 @@
+-Package: ws.hbang.newterm2
+-Name: NewTerm 2
+-Depends: firmware (>= 7.0), bash, coreutils, ncurses, system-cmds, com.linusyang.localeutf8, ws.hbang.common (>= 1.11.2)
+-Conflicts: ws.hbang.newterm
+-Replaces: ws.hbang.newterm
+-Version: 2.0~beta3
++Package: com.brycemcole.newterm-ios9
++Name: NewTerm for iOS 9
++Depends: firmware (>= 7.0), bash, coreutils-bin, ncurses, system-cmds, com.linusyang.localeutf8, ws.hbang.common (>= 1.11.2)
++Conflicts: ws.hbang.newterm, ws.hbang.newterm2
++Replaces: ws.hbang.newterm, ws.hbang.newterm2
++Version: 2.0~beta3+codex1
+ Architecture: iphoneos-arm
+ Description: A powerful terminal emulator for iOS
+ Maintainer: HASHBANG Productions <support@hbang.ws>
+ Author: HASHBANG Productions <support@hbang.ws>
+ Section: Terminal Support
+ Icon: file:///Applications/NewTerm.app/Icon-Small@2x.png
+-Depiction: https://cydia.hbang.ws/package/ws.hbang.newterm2/
++Depiction: https://cydia.hbang.ws/package/com.brycemcole.newterm-ios9/
+ Support: https://hbang.ws/support/
+ Sponsor: thebigboss.org <http://thebigboss.org>
+ Tag: compatible::ios7, compatible::ios8, compatible::ios9, compatible::ios10, compatible::ios11
+--- /dev/null
++++ b/NewTerm/ios9-availability.c
+@@ -0,0 +1,8 @@
++#include <stdint.h>
++struct build_version { uint32_t platform; uint32_t version; };
++int _availability_version_check(uint32_t count, const struct build_version versions[]) {
++    for (uint32_t i = 0; i < count; i++) {
++        if (versions[i].platform == 2) return versions[i].version <= 0x00090306;
++    }
++    return 0;
++}
