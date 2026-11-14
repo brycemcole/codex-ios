@@ -1,4 +1,5 @@
 #!/bin/sh
+ulimit -n 4096 2>/dev/null || true
 export TOKIO_WORKER_THREADS="${TOKIO_WORKER_THREADS:-1}"
 export RUST_MIN_STACK="${RUST_MIN_STACK:-1048576}"
 export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"

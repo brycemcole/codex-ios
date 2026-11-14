@@ -4,6 +4,8 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 source_dir="$repo_root/.build/codex"
 sdk_path="$repo_root/.build/legacy-sdks/iPhoneOS9.3.sdk"
+src_subdir=${AGENT_SRC_SUBDIR:-codex-rs}
+bin_name=${AGENT_BIN_NAME:-codex}
 toolchain=${RUST_TOOLCHAIN:-1.94.0}
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode-beta.app/Contents/Developer}
 export IPHONEOS_DEPLOYMENT_TARGET=9.0
@@ -39,6 +41,7 @@ export CARGO_HOME="$repo_root/.build/cargo-home"
 export CARGO_TARGET_DIR="$repo_root/.build/target-armv7"
 cd "$source_dir/codex-rs"
 rustup run "$toolchain" cargo fetch --locked
+cd "$source_dir/$src_subdir"
 python3 - "$CARGO_HOME" <<'PY'
 from pathlib import Path
 import sys
@@ -70,11 +73,11 @@ export BINDGEN_EXTRA_CLANG_ARGS_armv7_apple_ios="$CFLAGS_armv7_apple_ios"
 export CARGO_PROFILE_A7_FAST_OPT_LEVEL=2
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-6}
 
-cd "$source_dir/codex-rs"
 python3 "$repo_root/scripts/build-ring-ios9.py"
+cd "$source_dir/$src_subdir"
 rustup run "$toolchain" cargo build --locked -Z build-std=std,panic_abort \
-    --profile a7-fast --target "$repo_root/.build/armv7-apple-ios.json" --bin codex
+    --profile a7-fast --target "$repo_root/.build/armv7-apple-ios.json" --bin "$bin_name"
 mkdir -p "$repo_root/dist/armv7"
-cp "$CARGO_TARGET_DIR/armv7-apple-ios/a7-fast/codex" "$repo_root/dist/armv7/codex"
-xcrun strip -x "$repo_root/dist/armv7/codex"
-ldid -S "$repo_root/dist/armv7/codex"
+cp "$CARGO_TARGET_DIR/armv7-apple-ios/a7-fast/$bin_name" "$repo_root/dist/armv7/$bin_name"
+xcrun strip -x "$repo_root/dist/armv7/$bin_name"
+ldid -S "$repo_root/dist/armv7/$bin_name"

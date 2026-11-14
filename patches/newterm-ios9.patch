@@ -1,18 +1,5 @@
---- a/NewTerm/Makefile
-+++ b/NewTerm/Makefile
-@@ -1,10 +1,10 @@
- include $(THEOS)/makefiles/common.mk
- 
- APPLICATION_NAME = NewTerm
--NewTerm_FILES = $(wildcard *.m) $(wildcard *.x) $(wildcard ../VT100/*.m)
-+NewTerm_FILES = $(wildcard *.m) $(wildcard *.c) $(wildcard *.x) $(wildcard ../VT100/*.m)
- NewTerm_FRAMEWORKS = UIKit CoreGraphics QuartzCore
- NewTerm_PRIVATE_FRAMEWORKS = Preferences
--NewTerm_EXTRA_FRAMEWORKS = Cephei
-+NewTerm_EXTRA_FRAMEWORKS = Cephei CepheiUI
- NewTerm_LIBRARIES = curses
- NewTerm_CFLAGS = -I../headers -I../VT100 -fobjc-arc
- NewTerm_CODESIGN_FLAGS = -Sentitlements.plist
+diff --git a/NewTerm/HBNTKeyboardToolbar.m b/NewTerm/HBNTKeyboardToolbar.m
+index fe42d26..e65f2a5 100644
 --- a/NewTerm/HBNTKeyboardToolbar.m
 +++ b/NewTerm/HBNTKeyboardToolbar.m
 @@ -1,6 +1,6 @@
@@ -23,9 +10,11 @@
  
  @interface HBNTKeyboardToolbar () <UIInputViewAudioFeedback>
  
+diff --git a/NewTerm/HBNTSubProcess.m b/NewTerm/HBNTSubProcess.m
+index 3ba1dd7..967d271 100644
 --- a/NewTerm/HBNTSubProcess.m
 +++ b/NewTerm/HBNTSubProcess.m
-@@ -60,7 +60,16 @@
+@@ -60,7 +60,16 @@ - (void)start {
  
  		// TODO: these should be configurable
  		char *env[] = {
@@ -43,9 +32,22 @@
  			"LANG=en_US.UTF-8",
  			NULL
  		};
+diff --git a/NewTerm/HBNTTabCollectionViewCell.m b/NewTerm/HBNTTabCollectionViewCell.m
+index f0b5831..98e50c8 100644
+--- a/NewTerm/HBNTTabCollectionViewCell.m
++++ b/NewTerm/HBNTTabCollectionViewCell.m
+@@ -1,5 +1,5 @@
+ #import "HBNTTabCollectionViewCell.h"
+-#import <Cephei/UIView+CompactConstraint.h>
++#import <CepheiUI/UIView+CompactConstraint.h>
+ 
+ @implementation HBNTTabCollectionViewCell
+ 
+diff --git a/NewTerm/HBNTTerminalController.m b/NewTerm/HBNTTerminalController.m
+index 25cf585..479d9eb 100644
 --- a/NewTerm/HBNTTerminalController.m
 +++ b/NewTerm/HBNTTerminalController.m
-@@ -30,6 +30,7 @@
+@@ -30,6 +30,7 @@ @implementation HBNTTerminalController {
  	HBNTPTY *_pty;
  
  	BOOL _processEnded;
@@ -53,7 +55,7 @@
  }
  
  - (instancetype)init {
-@@ -71,6 +72,7 @@
+@@ -71,6 +72,7 @@ - (ScreenSize)screenSize {
  }
  
  - (void)setScreenSize:(ScreenSize)screenSize {
@@ -61,7 +63,7 @@
  	// Send the terminal the actual size of our vt100 view. This should be called any time we change
  	// the size of the view. This should be a no-op if the size has not changed since the last time we
  	// called it.
-@@ -103,22 +105,13 @@
+@@ -103,22 +105,13 @@ - (FontMetrics *)fontMetrics {
  #pragma mark - Screen Buffer Delegate
  
  - (void)refresh {
@@ -91,6 +93,52 @@
  	});
  }
  
+diff --git a/NewTerm/HBNTTerminalSessionViewController.m b/NewTerm/HBNTTerminalSessionViewController.m
+index 0fd5772..b69073a 100644
+--- a/NewTerm/HBNTTerminalSessionViewController.m
++++ b/NewTerm/HBNTTerminalSessionViewController.m
+@@ -15,7 +15,7 @@
+ #import "HBNTRootViewController.h"
+ #import "VT100ColorMap.h"
+ #import "FontMetrics.h"
+-#import <Cephei/UIView+CompactConstraint.h>
++#import <CepheiUI/UIView+CompactConstraint.h>
+ 
+ @implementation HBNTTerminalSessionViewController {
+ 	HBNTTerminalController *_terminalController;
+diff --git a/NewTerm/Makefile b/NewTerm/Makefile
+index 0c8dd13..0d8b853 100644
+--- a/NewTerm/Makefile
++++ b/NewTerm/Makefile
+@@ -1,10 +1,10 @@
+ include $(THEOS)/makefiles/common.mk
+ 
+ APPLICATION_NAME = NewTerm
+-NewTerm_FILES = $(wildcard *.m) $(wildcard *.x) $(wildcard ../VT100/*.m)
++NewTerm_FILES = $(wildcard *.m) $(wildcard *.c) $(wildcard *.x) $(wildcard ../VT100/*.m)
+ NewTerm_FRAMEWORKS = UIKit CoreGraphics QuartzCore
+ NewTerm_PRIVATE_FRAMEWORKS = Preferences
+-NewTerm_EXTRA_FRAMEWORKS = Cephei
++NewTerm_EXTRA_FRAMEWORKS = Cephei CepheiUI
+ NewTerm_LIBRARIES = curses
+ NewTerm_CFLAGS = -I../headers -I../VT100 -fobjc-arc
+ NewTerm_CODESIGN_FLAGS = -Sentitlements.plist
+diff --git a/NewTerm/ios9-availability.c b/NewTerm/ios9-availability.c
+new file mode 100644
+index 0000000..93f3eac
+--- /dev/null
++++ b/NewTerm/ios9-availability.c
+@@ -0,0 +1,8 @@
++#include <stdint.h>
++struct build_version { uint32_t platform; uint32_t version; };
++int _availability_version_check(uint32_t count, const struct build_version versions[]) {
++    for (uint32_t i = 0; i < count; i++) {
++        if (versions[i].platform == 2) return versions[i].version <= 0x00090306;
++    }
++    return 0;
++}
+diff --git a/VT100/VT100ColorMap.m b/VT100/VT100ColorMap.m
+index 2a90f8a..630fe02 100644
 --- a/VT100/VT100ColorMap.m
 +++ b/VT100/VT100ColorMap.m
 @@ -3,7 +3,7 @@
@@ -102,9 +150,11 @@
  
  @interface VT100ColorMap () {
  	UIColor *_table[COLOR_MAP_MAX_COLORS];
+diff --git a/VT100/VT100Screen.m b/VT100/VT100Screen.m
+index 44e1fe0..ded4eac 100644
 --- a/VT100/VT100Screen.m
 +++ b/VT100/VT100Screen.m
-@@ -255,7 +255,7 @@
+@@ -255,7 +255,7 @@ - (void)initScreenWithWidth:(int)width Height:(int)height {
  		_currentScrollbackLines = 0;
  
  		// set up our dirty flags buffer
@@ -113,6 +163,83 @@
  
  		// force a redraw
  		[self setDirty];
+diff --git a/VT100/VT100StringSupplier.m b/VT100/VT100StringSupplier.m
+index f2fd48d..1e8355c 100644
+--- a/VT100/VT100StringSupplier.m
++++ b/VT100/VT100StringSupplier.m
+@@ -7,6 +7,61 @@
+ #import "FontMetrics.h"
+ #import <version.h>
+ 
++static unichar CompatGlyph(unichar c) {
++	switch (c) {
++		case 0x00A0: return ' ';
++		case 0x00B7: return '.';
++		case 0x00D7: return 'x';
++		case 0x2013: case 0x2014: return '-';
++		case 0x2018: case 0x2019: return 0x27;
++		case 0x201C: case 0x201D: return '"';
++		case 0x2022: case 0x25CF: return '*';
++		case 0x2026: return '~';
++		case 0x2190: case 0x21D0: case 0x2B05: return '<';
++		case 0x2192: case 0x21D2: case 0x2B06: return '>';
++		case 0x2191: case 0x21D1: case 0x2B07: return '^';
++		case 0x2193: case 0x21D3: return 'v';
++		case 0x2502: case 0x2503: case 0x2507: case 0x2509: case 0x250B:
++		case 0x2551: return '|';
++		case 0x2500: case 0x2501: case 0x2504: case 0x2505: case 0x2506:
++		case 0x2508: case 0x250A: case 0x254C: case 0x254D: case 0x2550: return '-';
++		case 0x2571: return '/';
++		case 0x2572: return 0x5C;
++		case 0x2573: return 'X';
++		case 0x2588: case 0x2580: case 0x2584: case 0x258C: case 0x2590: return '#';
++		case 0x2591: return '.';
++		case 0x2592: return ':';
++		case 0x2593: case 0x2581: case 0x2582: case 0x2583: case 0x2585:
++		case 0x2586: case 0x2587: case 0x2589: case 0x258A: case 0x258B:
++		case 0x258D: case 0x258E: case 0x258F: case 0x2594: case 0x2595:
++		case 0x2596: case 0x2597: case 0x2598: case 0x2599: case 0x259A:
++		case 0x259B: case 0x259C: case 0x259D: case 0x259E: case 0x259F: return '#';
++		case 0x25A0: case 0x25A1: case 0x25AA: case 0x25AB: return '#';
++		case 0x25B2: case 0x25B4: return '^';
++		case 0x25BC: case 0x25BE: return 'v';
++		case 0x25C0: case 0x25C2: return '<';
++		case 0x25B6: case 0x25B8: return '>';
++		case 0x25CB: case 0x25E6: return 'o';
++		case 0x2713: case 0x2714: return 'v';
++		case 0x2715: case 0x2716: case 0x2717: case 0x2718: return 'x';
++		case 0x2800: return ' ';
++	}
++	if (c >= 0xD800 && c <= 0xDFFF) return '?';
++	if (c >= 0x2000 && c <= 0x200F) return ' ';
++	if (c >= 0x2020 && c <= 0x2044) return '*';
++	if (c >= 0x2028 && c <= 0x202F) return ' ';
++	if (c >= 0x2194 && c <= 0x21FF) return '*';
++	if (c >= 0x2400 && c <= 0x243F) return '*';
++	if (c >= 0x2460 && c <= 0x24FF) return '*';
++	if (c >= 0x250C && c <= 0x257F) return '+';
++	if (c >= 0x2800 && c <= 0x28FF) return '*';
++	if (c >= 0x2600 && c <= 0x27BF) return '*';
++	if (c >= 0x2B00 && c <= 0x2BFF) return '*';
++	if (c >= 0xFE00 && c <= 0xFE0F) return ' ';
++	if (c == 0xFEFF) return ' ';
++	return c;
++}
++
+ @implementation VT100StringSupplier {
+ 	NSMutableSet <NSValue *> *_lastLinkRanges;
+ 	NSDataDetector *_linkDataDetector;
+@@ -32,7 +87,7 @@ - (NSString *)stringForLine:(int)rowIndex {
+ 		if (row[j].code == '\0') {
+ 			unicharBuffer[j] = ' ';
+ 		} else {
+-			unicharBuffer[j] = row[j].code;
++			unicharBuffer[j] = CompatGlyph(row[j].code);
+ 		}
+ 	}
+ 	
+diff --git a/control b/control
+index 7f195a2..0d4e94d 100644
 --- a/control
 +++ b/control
 @@ -1,16 +1,16 @@
@@ -127,7 +254,7 @@
 +Depends: firmware (>= 7.0), bash, coreutils-bin, ncurses, system-cmds, com.linusyang.localeutf8, ws.hbang.common (>= 1.11.2)
 +Conflicts: ws.hbang.newterm, ws.hbang.newterm2
 +Replaces: ws.hbang.newterm, ws.hbang.newterm2
-+Version: 2.0~beta3+codex1
++Version: 2.0~beta3+codex2
  Architecture: iphoneos-arm
  Description: A powerful terminal emulator for iOS
  Maintainer: HASHBANG Productions <support@hbang.ws>
@@ -139,14 +266,3 @@
  Support: https://hbang.ws/support/
  Sponsor: thebigboss.org <http://thebigboss.org>
  Tag: compatible::ios7, compatible::ios8, compatible::ios9, compatible::ios10, compatible::ios11
---- /dev/null
-+++ b/NewTerm/ios9-availability.c
-@@ -0,0 +1,8 @@
-+#include <stdint.h>
-+struct build_version { uint32_t platform; uint32_t version; };
-+int _availability_version_check(uint32_t count, const struct build_version versions[]) {
-+    for (uint32_t i = 0; i < count; i++) {
-+        if (versions[i].platform == 2) return versions[i].version <= 0x00090306;
-+    }
-+    return 0;
-+}
