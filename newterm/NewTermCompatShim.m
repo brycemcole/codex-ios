@@ -12,12 +12,12 @@
 #import <fcntl.h>
 #import <sys/file.h>
 #import <sys/stat.h>
+#import <dlfcn.h>
 
 #import "VT100Types.h"
 #import "VT100Terminal.h"
 
-extern void MSHookMessageEx(Class cls, SEL selector, IMP replacement, IMP *result);
-extern void MSHookFunction(void *symbol, void *replace, void **result);
+static void (*nt_hookFunction)(void *symbol, void *replace, void **result);
 
 typedef struct {
     unsigned short width;
@@ -56,6 +56,37 @@ static void nt_prepareStateDirectory(void) {
                                withIntermediateDirectories:YES
                                                 attributes:@{ NSFilePosixPermissions: @0700 }
                                                      error:nil];
+}
+
+static void nt_logInit(NSString *message) {
+    NSString *path = @"/var/mobile/.newterm/init.log";
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [[NSFileManager defaultManager] createFileAtPath:path contents:nil attributes:nil];
+    }
+
+    NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
+    if (!handle) {
+        return;
+    }
+
+    [handle seekToEndOfFile];
+    [handle writeData:[[message stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+    [handle closeFile];
+}
+
+// Substitute maps tweak dylibs itself and does not resolve declarations such
+// as MSHookMessageEx, so hook Objective-C methods through the runtime instead.
+static void nt_swizzle(Class cls, SEL selector, IMP replacement, IMP *result) {
+    Method method = class_getInstanceMethod(cls, selector);
+    if (!method) {
+        return;
+    }
+
+    if (result) {
+        *result = method_getImplementation(method);
+    }
+
+    method_setImplementation(method, replacement);
 }
 
 static NSInteger nt_readIntegerFile(NSString *path, NSInteger fallback) {
@@ -708,6 +739,17 @@ static void initializeNewTermCompatShim(void) {
         pthread_mutex_init(&terminalMutex, &attributes);
         pthread_mutexattr_destroy(&attributes);
 
+        nt_prepareStateDirectory();
+        nt_logInit(@"shim init");
+
+        void *substrate = dlopen("/usr/lib/libsubstrate.dylib", RTLD_NOW | RTLD_GLOBAL);
+        if (substrate) {
+            nt_hookFunction = (void (*)(void *, void *, void **))dlsym(substrate, "MSHookFunction");
+            nt_logInit(nt_hookFunction ? @"libsubstrate loaded" : @"MSHookFunction missing");
+        } else {
+            nt_logInit(@"libsubstrate unavailable");
+        }
+
         // The stock iOS 13 NewTerm bundle deliberately starts with one fresh
         // terminal every time the process is relaunched. Keep the tab layout
         // and tmux allocation cursor outside that process so a force-close can
@@ -716,7 +758,9 @@ static void initializeNewTermCompatShim(void) {
         nt_saveTabCount(nt_launchTabCount);
         nt_resetLaunchCursor();
 
-        MSHookFunction((void *)execve, (void *)nt_execve, (void **)&originalExecve);
+        if (nt_hookFunction) {
+            nt_hookFunction((void *)execve, (void *)nt_execve, (void **)&originalExecve);
+        }
 
         Class controller = NSClassFromString(@"NewTermCommon.TerminalController");
         Class terminal = NSClassFromString(@"VT100");
@@ -728,19 +772,19 @@ static void initializeNewTermCompatShim(void) {
         }
 
         if (controller) {
-            MSHookMessageEx(controller, sel_registerName("setScreenSize:"), (IMP)nt_setScreenSize, (IMP *)&originalSetScreenSize);
-            MSHookMessageEx(controller, sel_registerName("updateTimerFired"), (IMP)nt_updateTimerFired, (IMP *)&originalUpdateTimerFired);
+            nt_swizzle(controller, sel_registerName("setScreenSize:"), (IMP)nt_setScreenSize, (IMP *)&originalSetScreenSize);
+            nt_swizzle(controller, sel_registerName("updateTimerFired"), (IMP)nt_updateTimerFired, (IMP *)&originalUpdateTimerFired);
         }
         if (terminal) {
-            MSHookMessageEx(terminal, sel_registerName("readInputStream:"), (IMP)nt_readInputStream, (IMP *)&originalReadInputStream);
-            MSHookMessageEx(terminal, sel_registerName("clearScreen"), (IMP)nt_clearScreen, (IMP *)&originalClearScreen);
+            nt_swizzle(terminal, sel_registerName("readInputStream:"), (IMP)nt_readInputStream, (IMP *)&originalReadInputStream);
+            nt_swizzle(terminal, sel_registerName("clearScreen"), (IMP)nt_clearScreen, (IMP *)&originalClearScreen);
         }
         if (screen) {
-            MSHookMessageEx(screen, sel_registerName("initScreenWithWidth:Height:"), (IMP)nt_initScreen, (IMP *)&originalInitScreen);
-            MSHookMessageEx(screen, sel_registerName("resizeWidth:height:"), (IMP)nt_resize, (IMP *)&originalResize);
+            nt_swizzle(screen, sel_registerName("initScreenWithWidth:Height:"), (IMP)nt_initScreen, (IMP *)&originalInitScreen);
+            nt_swizzle(screen, sel_registerName("resizeWidth:height:"), (IMP)nt_resize, (IMP *)&originalResize);
         }
         if (stringSupplier) {
-            MSHookMessageEx(stringSupplier, sel_registerName("attributedString"), (IMP)nt_attributedString, (IMP *)&originalAttributedString);
+            nt_swizzle(stringSupplier, sel_registerName("attributedString"), (IMP)nt_attributedString, (IMP *)&originalAttributedString);
         }
         if (root) {
             SEL loadView = sel_registerName("loadView");
@@ -750,20 +794,23 @@ static void initializeNewTermCompatShim(void) {
             SEL selectTerminalAtIndex = sel_registerName("selectTerminalAtIndex:");
 
             if (class_getInstanceMethod(root, loadView)) {
-                MSHookMessageEx(root, loadView, (IMP)nt_rootLoadView, (IMP *)&originalRootLoadView);
+                nt_swizzle(root, loadView, (IMP)nt_rootLoadView, (IMP *)&originalRootLoadView);
             }
             if (class_getInstanceMethod(root, addTerminal)) {
-                MSHookMessageEx(root, addTerminal, (IMP)nt_rootAddTerminal, (IMP *)&originalRootAddTerminal);
+                nt_swizzle(root, addTerminal, (IMP)nt_rootAddTerminal, (IMP *)&originalRootAddTerminal);
             }
             if (class_getInstanceMethod(root, removeCurrentTerminal)) {
-                MSHookMessageEx(root, removeCurrentTerminal, (IMP)nt_rootRemoveCurrentTerminal, (IMP *)&originalRootRemoveCurrentTerminal);
+                nt_swizzle(root, removeCurrentTerminal, (IMP)nt_rootRemoveCurrentTerminal, (IMP *)&originalRootRemoveCurrentTerminal);
             }
             if (class_getInstanceMethod(root, removeAllTerminals)) {
-                MSHookMessageEx(root, removeAllTerminals, (IMP)nt_rootRemoveAllTerminals, (IMP *)&originalRootRemoveAllTerminals);
+                nt_swizzle(root, removeAllTerminals, (IMP)nt_rootRemoveAllTerminals, (IMP *)&originalRootRemoveAllTerminals);
             }
             if (class_getInstanceMethod(root, selectTerminalAtIndex)) {
-                MSHookMessageEx(root, selectTerminalAtIndex, (IMP)nt_rootSelectTerminalAtIndex, (IMP *)&originalRootSelectTerminalAtIndex);
+                nt_swizzle(root, selectTerminalAtIndex, (IMP)nt_rootSelectTerminalAtIndex, (IMP *)&originalRootSelectTerminalAtIndex);
             }
         }
+
+        nt_logInit([NSString stringWithFormat:@"hooked %d%d%d%d%d",
+                    controller != nil, terminal != nil, screen != nil, stringSupplier != nil, root != nil]);
     }
 }

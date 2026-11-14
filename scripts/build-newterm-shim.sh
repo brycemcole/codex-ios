@@ -22,7 +22,7 @@ xcrun clang -dynamiclib -arch arm64 -isysroot "$sdk_path" -miphoneos-version-min
     -I"$source_dir/Common" -I"$source_dir/Common/VT100" -I"$source_dir/Common/Supporting Files" \
     -framework Foundation -framework UIKit \
     -Wl,-install_name,/Library/MobileSubstrate/DynamicLibraries/NewTermCompatShim.dylib \
-    -undefined dynamic_lookup "$repo_root/newterm/NewTermCompatShim.m" -o "$raw"
+    "$repo_root/newterm/NewTermCompatShim.m" -o "$raw"
 
 xcrun vtool -set-build-version ios 13.0 27.0 \
     -output "$repo_root/dist/NewTermCompatShim.dylib" "$raw"
