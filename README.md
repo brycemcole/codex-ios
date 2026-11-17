@@ -8,6 +8,33 @@ device cannot run the same binary:
 - `com.brycemcole.codex-ios` — arm64, iOS 13 or newer
 - `com.brycemcole.codex-ios-armv7` — armv7, iOS 9
 
+## Run this example
+
+On a **rootful jailbroken arm64 device running iOS 13–14**, first install [NewTerm 2.5 from Chariz](https://chariz.com/get/newterm). Download the following two assets from [release v0.147.0-2](https://github.com/brycemcole/codex-ios/releases/tag/v0.147.0-2), then run these commands on the device in the download directory (not on your Mac):
+
+```sh
+sudo dpkg -i com.brycemcole.codex-newterm-compat_1.0.0-1_iphoneos-arm.deb
+sudo dpkg -i com.brycemcole.codex-ios_0.147.0-1_iphoneos-arm.deb
+```
+
+Fully close and reopen NewTerm, then run:
+
+```sh
+codex --version
+codex login
+codex
+```
+
+The version should report `codex-cli 0.147.0`; login opens an authentication page with `uiopen`. An OpenAI account and network access are required for a real request. For a 32-bit iOS 9 device, use the separate [armv7 installation](#ios-9-armv7), not these arm64 packages.
+
+## Known limitations
+
+- These packages target rootful jailbreaks only. Rootless iOS 15+ layouts under `/var/jb` are not packaged; arm64 iOS 12 and earlier is also out of scope.
+- The exact armv7 release has been exercised on an iPhone 4S running iOS 9.3.6. These exact arm64 packages have not been reinstalled on the iPhone SE since an equivalent build ran there; other compatible devices are expected to work, not individually verified.
+- NewTerm compatibility is part of the installation, not an optional standalone terminal replacement. The iOS 9 path needs the supplied NewTerm fork because stock NewTerm requires iOS 10+.
+- This is a port of Codex 0.147.0, not a guarantee of compatibility with future OpenAI authentication or service changes. Credentials are not bundled, and local startup/version output alone does not verify a model request.
+- Building from source requires macOS, Xcode/SDKs, Rust, and signing/packaging tools; it is not a stock-iOS App Store or Simulator app.
+
 ## Compatibility
 
 ### arm64 — `com.brycemcole.codex-ios`
